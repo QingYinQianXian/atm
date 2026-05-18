@@ -41,11 +41,13 @@
         "password": "123456",
         "balance": 10000.0,
         "failed_attempts": 0,
-        "locked_until": 0,
-        "transactions": [
-            {"type": "存款", "amount": 500, "time": "2026-01-01 12:00:00", "balance_after": 10500.0, "target": null}
-        ]
-    }
+            "locked_until": 0,
+            "transactions": [
+                {"type": "存款", "amount": 500, ...}
+            ]
+        }
+    },
+    "_lang": "zh"
 }
 ```
 
@@ -91,6 +93,12 @@
 *   锁定期间登录会提示精确到秒的剩余时间。
 *   锁定时间到期后自动解除，失败计数清零。
 
+### 8. 多语言支持 (i18n)
+*   支持中文 / English 实时切换。
+*   登录页和主菜单顶部均设有切换按钮。
+*   切换语言后自动刷新当前界面，语言偏好保存到 `data.json`。
+*   所有界面文本、提示消息、交易类型均完整双语覆盖。
+
 ---
 
 ## 四、 功能清单
@@ -105,8 +113,9 @@
 | 修改密码 | 旧密码验证，新密码强度检查 | `models.py:128-140` |
 | 注册账户 | 自动生成账号，密码规则验证 | `models.py:113-126` |
 | 交易明细 | 表格展示全部历史记录 | `models.py:57-58` |
-| 账户锁定 | 3次错误锁定5分钟 | `models.py:51-70` |
-| 退出登录 | 返回登录界面 | `controllers.py:16-17` |
+| 账户锁定 | 3次错误锁定5分钟 | `models.py:56-85` |
+| 多语言切换 | 中/英文实时切换 | `lang.py` |
+| 退出登录 | 返回登录界面 | `controllers.py:43-45` |
 
 ---
 
@@ -120,6 +129,7 @@ atm/
 ├── controllers.py   # 控制层：逻辑调度与视图切换
 ├── data.json        # 本地数据存储（运行时自动生成）
 ├── requirements.txt # 依赖清单（零第三方依赖）
+├── lang.py          # 语言包：中文/English 双语字典
 ├── runtime.txt      # Python 运行时版本
 ├── suggest.txt      # 项目需求描述
 └── readme.md        # 项目说明文档

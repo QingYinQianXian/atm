@@ -41,11 +41,11 @@ class ATMModel:
         with open(self.data_file, 'w', encoding='utf-8') as f:
             json.dump(data or self.accounts, f, ensure_ascii=False, indent=4)
 
-    def _log_transaction(self, tx_type, amount, balance_after, target=None):
+    def _log_transaction(self, tx_key, amount, balance_after, target=None):
         if "transactions" not in self.accounts[self.current_account]:
             self.accounts[self.current_account]["transactions"] = []
         record = {
-            "type": tx_type,
+            "type_key": tx_key,
             "amount": amount,
             "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "balance_after": balance_after,
@@ -55,15 +55,15 @@ class ATMModel:
 
     def check_login(self, account, password):
         if account not in self.accounts:
-            return False, "账号不存在"
+            return False, "msg_account_not_exist", {}
         acc = self.accounts[account]
         locked_until = acc.get("locked_until", 0)
         if locked_until > 0:
             remaining = locked_until - int(time.time())
             if remaining > 0:
-                minutes = remaining // 60
-                seconds = remaining % 60
-                return False, f"账户已被锁定，请在 {minutes}分{seconds}秒 后重试"
+                m = remaining // 60
+                s = remaining % 60
+                return False, "msg_locked_remaining", {"m": m, "s": s}
             acc["locked_until"] = 0
             acc["failed_attempts"] = 0
         if acc["password"] == password:
@@ -71,16 +71,16 @@ class ATMModel:
             acc["locked_until"] = 0
             self._save_to_disk()
             self.current_account = account
-            return True, "登录成功"
+            return True, "msg_login_ok", {}
         acc["failed_attempts"] = acc.get("failed_attempts", 0) + 1
-        remaining_attempts = self.MAX_FAILED_ATTEMPTS - acc["failed_attempts"]
+        remaining = self.MAX_FAILED_ATTEMPTS - acc["failed_attempts"]
         if acc["failed_attempts"] >= self.MAX_FAILED_ATTEMPTS:
             acc["locked_until"] = int(time.time()) + self.LOCK_DURATION
             acc["failed_attempts"] = 0
             self._save_to_disk()
-            return False, "密码连续错误3次，账户已被锁定5分钟"
+            return False, "msg_locked", {}
         self._save_to_disk()
-        return False, f"账号或密码不正确，剩余尝试次数: {remaining_attempts}"
+        return False, "msg_login_fail", {"n": remaining}
 
     def get_balance(self):
         return self.accounts[self.current_account]["balance"]
@@ -90,54 +90,57 @@ class ATMModel:
 
     def deposit(self, amount):
         if amount <= 0:
-            return False, "存款金额必须大于0"
+            return False, "msg_deposit_err", {}
         self.accounts[self.current_account]["balance"] += amount
         balance_after = self.accounts[self.current_account]["balance"]
-        self._log_transaction("存款", amount, balance_after)
+        self._log_transaction("tx_deposit", amount, balance_after)
         self._save_to_disk()
-        return True, f"存款成功，当前余额: {balance_after:.2f}元"
+        return True, "msg_deposit_ok", {"balance": f"{balance_after:.2f}"}
 
     def withdraw(self, amount):
         if amount <= 0:
-            return False, "金额无效"
+            return False, "msg_withdraw_invalid", {}
         if amount % 100 != 0:
-            return False, "取款金额必须是100的倍数"
+            return False, "msg_withdraw_mod", {}
         if amount > 5000:
-            return False, "单次取款不能超过5000元"
+            return False, "msg_withdraw_limit", {}
         if amount > self.accounts[self.current_account]["balance"]:
-            return False, "余额不足，不可透支"
+            return False, "msg_withdraw_overdraft", {}
         self.accounts[self.current_account]["balance"] -= amount
         balance_after = self.accounts[self.current_account]["balance"]
-        self._log_transaction("取款", amount, balance_after)
+        self._log_transaction("tx_withdraw", amount, balance_after)
         self._save_to_disk()
-        return True, f"取款成功，当前余额: {balance_after:.2f}元"
+        return True, "msg_withdraw_ok", {"balance": f"{balance_after:.2f}"}
 
     def transfer(self, target_account, amount):
         if amount <= 0:
-            return False, "转账金额必须大于0"
+            return False, "msg_transfer_positive", {}
         if target_account not in self.accounts:
-            return False, "目标账户不存在"
+            return False, "msg_transfer_no_target", {}
         if target_account == self.current_account:
-            return False, "不能转账给自己"
+            return False, "msg_transfer_self", {}
         if amount > self.accounts[self.current_account]["balance"]:
-            return False, "余额不足，不可透支"
+            return False, "msg_transfer_overdraft", {}
         self.accounts[self.current_account]["balance"] -= amount
         self.accounts[target_account]["balance"] += amount
         balance_after = self.accounts[self.current_account]["balance"]
-        self._log_transaction("转出", amount, balance_after, target_account)
+        self._log_transaction("tx_transfer_out", amount, balance_after, target_account)
         if "transactions" not in self.accounts[target_account]:
             self.accounts[target_account]["transactions"] = []
         target_balance_after = self.accounts[target_account]["balance"]
         self.accounts[target_account]["transactions"].append({
-            "type": "转入",
+            "type_key": "tx_transfer_in",
             "amount": amount,
             "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "balance_after": target_balance_after,
             "target": self.current_account
         })
         self._save_to_disk()
-        return True, (f"转账成功！向账户 {target_account} 转出 {amount:.2f}元，"
-                      f"当前余额: {balance_after:.2f}元")
+        return True, "msg_transfer_ok", {
+            "target": target_account,
+            "amount": f"{amount:.2f}",
+            "balance": f"{balance_after:.2f}"
+        }
 
     def _generate_account(self):
         existing = sorted([int(k) for k in self.accounts.keys() if k.isdigit()])
@@ -145,11 +148,11 @@ class ATMModel:
 
     def register(self, password, confirm_password):
         if password != confirm_password:
-            return False, "两次输入的密码不一致"
+            return False, "msg_pwd_mismatch", {}
         if len(password) < 6:
-            return False, "密码长度至少需要6位"
+            return False, "msg_pwd_short", {}
         if len(set(password)) == 1:
-            return False, "密码不能是完全相同的字符"
+            return False, "msg_pwd_same_chars", {}
         new_account = self._generate_account()
         self.accounts[new_account] = {
             "password": password,
@@ -158,17 +161,17 @@ class ATMModel:
             "locked_until": 0
         }
         self._save_to_disk()
-        return True, f"注册成功！您的账号为：{new_account}，请妥善保管"
+        return True, "msg_register_ok", {"account": new_account}
 
     def change_password(self, old_pwd, new_pwd, confirm_pwd):
         if old_pwd != self.accounts[self.current_account]["password"]:
-            return False, "旧密码输入错误"
+            return False, "msg_pwd_old_wrong", {}
         if new_pwd != confirm_pwd:
-            return False, "两次输入的新密码不一致"
+            return False, "msg_pwd_mismatch", {}
         if len(new_pwd) < 6:
-            return False, "新密码长度至少需要6位"
+            return False, "msg_pwd_short", {}
         if len(set(new_pwd)) == 1:
-            return False, "新密码不能是完全相同的字符"
+            return False, "msg_pwd_same_chars", {}
         self.accounts[self.current_account]["password"] = new_pwd
         self._save_to_disk()
-        return True, "密码修改成功，请重新登录"
+        return True, "msg_pwd_ok", {}
