@@ -27,6 +27,8 @@ class ATMModel:
             if not data:
                 return self.initial_data
             for acc in data.values():
+                if not isinstance(acc, dict):
+                    continue
                 if "transactions" not in acc:
                     acc["transactions"] = []
                 if "failed_attempts" not in acc:
