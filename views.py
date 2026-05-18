@@ -85,10 +85,9 @@ class LoginFrame(ttk.Frame):
         tk.Label(banner, text=tr["banner_subtitle"], font=("微软雅黑", 10),
                  fg="#BBDEFB", bg="#1565C0").pack()
 
-        lang_frame = tk.Frame(banner, bg="#1565C0")
-        lang_frame.pack(anchor="e", padx=10)
-        ttk.Button(lang_frame, text=tr["lang_switch"], style="Lang.TButton",
-                   command=controller.toggle_language).pack()
+        lang_btn = ttk.Button(banner, text=tr["lang_switch"], style="Lang.TButton",
+                              command=controller.toggle_language)
+        lang_btn.place(relx=1.0, x=-10, y=5, anchor="ne")
 
         card = ttk.Frame(self, padding=25)
         card.pack(pady=30)
@@ -129,8 +128,10 @@ class MenuFrame(ttk.Frame):
         header.pack_propagate(False)
         tk.Label(header, text=tr["menu_title"], font=("微软雅黑", 15, "bold"),
                  fg="white", bg="#1565C0").pack(side="left", padx=15, pady=15)
-        ttk.Button(header, text=tr["lang_switch"], style="Lang.TButton",
-                   command=controller.toggle_language).pack(side="right", padx=10)
+
+        lang_btn = ttk.Button(header, text=tr["lang_switch"], style="Lang.TButton",
+                              command=controller.toggle_language)
+        lang_btn.place(relx=1.0, x=-10, rely=0.5, anchor="e")
 
         menu_area = ttk.Frame(self, padding=20)
         menu_area.pack(expand=True)
