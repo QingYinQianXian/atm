@@ -1,14 +1,18 @@
 import json
 import os
+import time
 from datetime import datetime
 
 class ATMModel:
+    MAX_FAILED_ATTEMPTS = 3
+    LOCK_DURATION = 300
+
     def __init__(self, data_file="data.json"):
         self.data_file = data_file
         self.initial_data = {
-            "123456": {"password": "123456", "balance": 10000.0},
-            "654321": {"password": "654321", "balance": 5000.0},
-            "888888": {"password": "888888", "balance": 8000.0}
+            "123456": {"password": "123456", "balance": 10000.0, "failed_attempts": 0, "locked_until": 0},
+            "654321": {"password": "654321", "balance": 5000.0, "failed_attempts": 0, "locked_until": 0},
+            "888888": {"password": "888888", "balance": 8000.0, "failed_attempts": 0, "locked_until": 0}
         }
         self.accounts = self._load_data()
         self.current_account = None
@@ -25,6 +29,10 @@ class ATMModel:
             for acc in data.values():
                 if "transactions" not in acc:
                     acc["transactions"] = []
+                if "failed_attempts" not in acc:
+                    acc["failed_attempts"] = 0
+                if "locked_until" not in acc:
+                    acc["locked_until"] = 0
             return data
         except (json.JSONDecodeError, IOError):
             return self.initial_data
@@ -46,10 +54,33 @@ class ATMModel:
         self.accounts[self.current_account]["transactions"].append(record)
 
     def check_login(self, account, password):
-        if account in self.accounts and self.accounts[account]["password"] == password:
+        if account not in self.accounts:
+            return False, "账号不存在"
+        acc = self.accounts[account]
+        locked_until = acc.get("locked_until", 0)
+        if locked_until > 0:
+            remaining = locked_until - int(time.time())
+            if remaining > 0:
+                minutes = remaining // 60
+                seconds = remaining % 60
+                return False, f"账户已被锁定，请在 {minutes}分{seconds}秒 后重试"
+            acc["locked_until"] = 0
+            acc["failed_attempts"] = 0
+        if acc["password"] == password:
+            acc["failed_attempts"] = 0
+            acc["locked_until"] = 0
+            self._save_to_disk()
             self.current_account = account
-            return True
-        return False
+            return True, "登录成功"
+        acc["failed_attempts"] = acc.get("failed_attempts", 0) + 1
+        remaining_attempts = self.MAX_FAILED_ATTEMPTS - acc["failed_attempts"]
+        if acc["failed_attempts"] >= self.MAX_FAILED_ATTEMPTS:
+            acc["locked_until"] = int(time.time()) + self.LOCK_DURATION
+            acc["failed_attempts"] = 0
+            self._save_to_disk()
+            return False, "密码连续错误3次，账户已被锁定5分钟"
+        self._save_to_disk()
+        return False, f"账号或密码不正确，剩余尝试次数: {remaining_attempts}"
 
     def get_balance(self):
         return self.accounts[self.current_account]["balance"]
@@ -122,7 +153,9 @@ class ATMModel:
         new_account = self._generate_account()
         self.accounts[new_account] = {
             "password": password,
-            "balance": 0.0
+            "balance": 0.0,
+            "failed_attempts": 0,
+            "locked_until": 0
         }
         self._save_to_disk()
         return True, f"注册成功！您的账号为：{new_account}，请妥善保管"

@@ -7,10 +7,11 @@ class ATMController:
         self.view.switch_frame(LoginFrame, self)
 
     def login(self, acc, pwd):
-        if self.model.check_login(acc, pwd):
+        success, msg = self.model.check_login(acc, pwd)
+        if success:
             self.show_menu()
         else:
-            self.view.show_message("错误", "账号或密码不正确", is_error=True)
+            self.view.show_message("错误", msg, is_error=True)
 
     def logout(self):
         self.model.current_account = None
