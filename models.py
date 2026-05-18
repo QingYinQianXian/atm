@@ -108,6 +108,25 @@ class ATMModel:
         return True, (f"转账成功！向账户 {target_account} 转出 {amount:.2f}元，"
                       f"当前余额: {balance_after:.2f}元")
 
+    def _generate_account(self):
+        existing = sorted([int(k) for k in self.accounts.keys() if k.isdigit()])
+        return str(existing[-1] + 1) if existing else "100001"
+
+    def register(self, password, confirm_password):
+        if password != confirm_password:
+            return False, "两次输入的密码不一致"
+        if len(password) < 6:
+            return False, "密码长度至少需要6位"
+        if len(set(password)) == 1:
+            return False, "密码不能是完全相同的字符"
+        new_account = self._generate_account()
+        self.accounts[new_account] = {
+            "password": password,
+            "balance": 0.0
+        }
+        self._save_to_disk()
+        return True, f"注册成功！您的账号为：{new_account}，请妥善保管"
+
     def change_password(self, old_pwd, new_pwd, confirm_pwd):
         if old_pwd != self.accounts[self.current_account]["password"]:
             return False, "旧密码输入错误"

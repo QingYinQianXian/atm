@@ -1,4 +1,4 @@
-from views import LoginFrame, MenuFrame, BalanceFrame, ActionFrame, TransferFrame, TransactionFrame, ChangePwdFrame
+from views import LoginFrame, MenuFrame, BalanceFrame, ActionFrame, TransferFrame, TransactionFrame, RegisterFrame, ChangePwdFrame
 
 class ATMController:
     def __init__(self, model, view):
@@ -73,6 +73,20 @@ class ATMController:
     def show_transactions(self):
         transactions = self.model.get_transactions()
         self.view.switch_frame(TransactionFrame, transactions, self.show_menu)
+
+    def show_register(self):
+        self.view.switch_frame(RegisterFrame, self.handle_register, self.show_login)
+
+    def handle_register(self, password, confirm_password):
+        success, msg = self.model.register(password, confirm_password)
+        if success:
+            self.view.show_message("成功", msg)
+            self.show_login()
+        else:
+            self.view.show_message("错误", msg, is_error=True)
+
+    def show_login(self):
+        self.view.switch_frame(LoginFrame, self)
 
     def show_change_pwd(self):
         self.view.switch_frame(ChangePwdFrame, self.handle_change_pwd, self.show_menu)

@@ -40,7 +40,9 @@ class LoginFrame(tk.Frame):
         self.pwd_entry.insert(0, "123456")
 
         tk.Button(self, text="登录", width=15, bg="#4CAF50", fg="white",
-                  command=lambda: controller.login(self.acc_entry.get(), self.pwd_entry.get())).pack(pady=20)
+                  command=lambda: controller.login(self.acc_entry.get(), self.pwd_entry.get())).pack(pady=10)
+        tk.Button(self, text="注册新账户", width=15, bg="#FF9800", fg="white",
+                  command=controller.show_register).pack()
 
 class MenuFrame(tk.Frame):
     def __init__(self, parent, controller):
@@ -136,6 +138,25 @@ class TransactionFrame(tk.Frame):
         btn_frame = tk.Frame(self)
         btn_frame.pack(pady=5)
         tk.Button(btn_frame, text="返回主菜单", width=15, command=back_cmd).pack()
+
+class RegisterFrame(tk.Frame):
+    def __init__(self, parent, submit_cmd, back_cmd):
+        super().__init__(parent)
+        tk.Label(self, text="注册新账户", font=("微软雅黑", 14)).pack(pady=15)
+
+        tk.Label(self, text="设置密码:").pack()
+        self.pwd_entry = tk.Entry(self, show="*")
+        self.pwd_entry.pack(pady=5)
+
+        tk.Label(self, text="确认密码:").pack()
+        self.confirm_entry = tk.Entry(self, show="*")
+        self.confirm_entry.pack(pady=5)
+
+        tk.Label(self, text="密码长度不小于6位\n不允许6位完全相同字符", fg="gray").pack(pady=5)
+
+        tk.Button(self, text="注册", width=15, bg="#4CAF50", fg="white",
+                  command=lambda: submit_cmd(self.pwd_entry.get(), self.confirm_entry.get())).pack(pady=15)
+        tk.Button(self, text="返回登录", width=15, command=back_cmd).pack()
 
 class ChangePwdFrame(tk.Frame):
     def __init__(self, parent, submit_cmd, back_cmd):
