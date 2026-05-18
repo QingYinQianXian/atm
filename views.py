@@ -1,11 +1,11 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 
 class ATMView(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("大学生软件工程项目 - ATM柜员机模拟程序")
-        self.geometry("480x480")
+        self.geometry("620x560")
         self.resizable(False, False)
         self.main_container = tk.Frame(self)
         self.main_container.pack(fill="both", expand=True)
@@ -53,6 +53,7 @@ class MenuFrame(tk.Frame):
             ("取款业务", controller.show_withdraw),
             ("转账业务", controller.show_transfer),
             ("修改密码", controller.show_change_pwd),
+            ("交易明细", controller.show_transactions),
             ("退出登录", controller.logout)
         ]
 
@@ -93,6 +94,48 @@ class TransferFrame(tk.Frame):
         tk.Button(self, text="确认转账", width=15, bg="#9C27B0", fg="white",
                   command=lambda: submit_cmd(self.target_entry.get(), self.amount_entry.get())).pack(pady=15)
         tk.Button(self, text="返回", width=15, command=back_cmd).pack()
+
+class TransactionFrame(tk.Frame):
+    def __init__(self, parent, transactions, back_cmd):
+        super().__init__(parent)
+        tk.Label(self, text="交易明细记录", font=("微软雅黑", 14)).pack(pady=5)
+
+        tree_frame = tk.Frame(self)
+        tree_frame.pack(fill="both", expand=True, padx=10, pady=5)
+
+        columns = ("序号", "类型", "金额", "时间", "操作后余额", "对方账户")
+        tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=14)
+        tree.heading("序号", text="序号")
+        tree.heading("类型", text="类型")
+        tree.heading("金额", text="金额")
+        tree.heading("时间", text="时间")
+        tree.heading("操作后余额", text="操作后余额")
+        tree.heading("对方账户", text="对方账户")
+
+        tree.column("序号", width=45, anchor="center", stretch=False)
+        tree.column("类型", width=55, anchor="center", stretch=False)
+        tree.column("金额", width=95, anchor="center", stretch=False)
+        tree.column("时间", width=145, anchor="center", stretch=True)
+        tree.column("操作后余额", width=110, anchor="center", stretch=True)
+        tree.column("对方账户", width=80, anchor="center", stretch=False)
+
+        scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+        tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        if not transactions:
+            tree.insert("", "end", values=("", "暂无交易记录", "", "", "", ""))
+
+        for i, tx in enumerate(transactions, 1):
+            amount_str = f"¥{tx['amount']:.2f}"
+            balance_str = f"¥{tx['balance_after']:.2f}"
+            target_str = tx.get("target", "") or ""
+            tree.insert("", "end", values=(i, tx["type"], amount_str, tx["time"], balance_str, target_str))
+
+        btn_frame = tk.Frame(self)
+        btn_frame.pack(pady=5)
+        tk.Button(btn_frame, text="返回主菜单", width=15, command=back_cmd).pack()
 
 class ChangePwdFrame(tk.Frame):
     def __init__(self, parent, submit_cmd, back_cmd):

@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime
 
 class ATMModel:
     def __init__(self, data_file="data.json"):
@@ -19,13 +20,30 @@ class ATMModel:
         try:
             with open(self.data_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            return data if data else self.initial_data
+            if not data:
+                return self.initial_data
+            for acc in data.values():
+                if "transactions" not in acc:
+                    acc["transactions"] = []
+            return data
         except (json.JSONDecodeError, IOError):
             return self.initial_data
 
     def _save_to_disk(self, data=None):
         with open(self.data_file, 'w', encoding='utf-8') as f:
             json.dump(data or self.accounts, f, ensure_ascii=False, indent=4)
+
+    def _log_transaction(self, tx_type, amount, balance_after, target=None):
+        if "transactions" not in self.accounts[self.current_account]:
+            self.accounts[self.current_account]["transactions"] = []
+        record = {
+            "type": tx_type,
+            "amount": amount,
+            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "balance_after": balance_after,
+            "target": target
+        }
+        self.accounts[self.current_account]["transactions"].append(record)
 
     def check_login(self, account, password):
         if account in self.accounts and self.accounts[account]["password"] == password:
@@ -36,12 +54,17 @@ class ATMModel:
     def get_balance(self):
         return self.accounts[self.current_account]["balance"]
 
+    def get_transactions(self):
+        return self.accounts[self.current_account].get("transactions", [])
+
     def deposit(self, amount):
         if amount <= 0:
             return False, "存款金额必须大于0"
         self.accounts[self.current_account]["balance"] += amount
+        balance_after = self.accounts[self.current_account]["balance"]
+        self._log_transaction("存款", amount, balance_after)
         self._save_to_disk()
-        return True, f"存款成功，当前余额: {self.accounts[self.current_account]['balance']:.2f}元"
+        return True, f"存款成功，当前余额: {balance_after:.2f}元"
 
     def withdraw(self, amount):
         if amount <= 0:
@@ -53,8 +76,10 @@ class ATMModel:
         if amount > self.accounts[self.current_account]["balance"]:
             return False, "余额不足，不可透支"
         self.accounts[self.current_account]["balance"] -= amount
+        balance_after = self.accounts[self.current_account]["balance"]
+        self._log_transaction("取款", amount, balance_after)
         self._save_to_disk()
-        return True, f"取款成功，当前余额: {self.accounts[self.current_account]['balance']:.2f}元"
+        return True, f"取款成功，当前余额: {balance_after:.2f}元"
 
     def transfer(self, target_account, amount):
         if amount <= 0:
@@ -67,9 +92,21 @@ class ATMModel:
             return False, "余额不足，不可透支"
         self.accounts[self.current_account]["balance"] -= amount
         self.accounts[target_account]["balance"] += amount
+        balance_after = self.accounts[self.current_account]["balance"]
+        self._log_transaction("转出", amount, balance_after, target_account)
+        if "transactions" not in self.accounts[target_account]:
+            self.accounts[target_account]["transactions"] = []
+        target_balance_after = self.accounts[target_account]["balance"]
+        self.accounts[target_account]["transactions"].append({
+            "type": "转入",
+            "amount": amount,
+            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "balance_after": target_balance_after,
+            "target": self.current_account
+        })
         self._save_to_disk()
         return True, (f"转账成功！向账户 {target_account} 转出 {amount:.2f}元，"
-                      f"当前余额: {self.accounts[self.current_account]['balance']:.2f}元")
+                      f"当前余额: {balance_after:.2f}元")
 
     def change_password(self, old_pwd, new_pwd, confirm_pwd):
         if old_pwd != self.accounts[self.current_account]["password"]:

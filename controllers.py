@@ -1,4 +1,4 @@
-from views import LoginFrame, MenuFrame, BalanceFrame, ActionFrame, TransferFrame, ChangePwdFrame
+from views import LoginFrame, MenuFrame, BalanceFrame, ActionFrame, TransferFrame, TransactionFrame, ChangePwdFrame
 
 class ATMController:
     def __init__(self, model, view):
@@ -69,6 +69,10 @@ class ATMController:
                 self.view.show_message("错误", msg, is_error=True)
         except ValueError:
             self.view.show_message("错误", "请输入有效的数字金额", is_error=True)
+
+    def show_transactions(self):
+        transactions = self.model.get_transactions()
+        self.view.switch_frame(TransactionFrame, transactions, self.show_menu)
 
     def show_change_pwd(self):
         self.view.switch_frame(ChangePwdFrame, self.handle_change_pwd, self.show_menu)
